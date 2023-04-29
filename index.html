@@ -16,16 +16,18 @@
 
   <script src="Build/WebGL.loader.js"></script>
   <script>
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|BB|PlayBook|IEMobile|Windows Phone|Kindle|Silk|Opera Mini/i.test(navigator.userAgent);
+
     const settings = {
-      dataUrl: "Build/52d9ea1985dede569e50289c394604c4.data.unityweb",
-      frameworkUrl: "Build/be868a62e88e351e4101f5eb8d2a4264.js.unityweb",
-      codeUrl: "Build/5275c1f58cf085ae8d75d1fa519fdb3d.wasm.unityweb",
+      dataUrl: "Build/c9c61d8dc166f071d245018afb46c43b.data.unityweb",
+      frameworkUrl: "Build/356899f9f659472a46b2ea9fb1cd6f3c.js.unityweb",
+      codeUrl: "Build/c12d3032a545c9d20bbfcf78eb5394fe.wasm.unityweb",
       streamingAssetsUrl: "StreamingAssets",
       companyName: "DefaultCompany",
       productName: "FurryGameConcept",
       productVersion: "0.1",
       matchWebGLToCanvasSize: true,
-      devicePixelRatio: 1.5,
+      devicePixelRatio: !isMobileDevice ? 2 : 1.6,
     };
 
     const progressBar = document.querySelector("#progress-bar");
