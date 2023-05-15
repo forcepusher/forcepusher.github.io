@@ -1,90 +1,100 @@
 <!DOCTYPE html>
-<html>
+<html lang="en-us">
 
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>AgavaWebTemplate</title>
-
-  <script type="text/javascript" >
-    window.yandexMetricaCounterId = parseInt();
-  </script>
-
-  <!-- Yandex.Metrika counter -->
-  <script type="text/javascript" >
-    (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-    m[i].l=1*new Date();
-    for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
-    k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
-    (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
-
-    ym(window.yandexMetricaCounterId, "init", {
-        clickmap:true,
-        trackLinks:true,
-        accurateTrackBounce:true
+  <title>Game Push Demo</title>
+  <link rel="stylesheet" href="TemplateData/style.css">
+  <script src="TemplateData/gamepush-unity.js"></script>
+  <script>
+    var _unityAwaiter = {};
+    _unityAwaiter.ready = new Promise((resolve, reject) => {
+      _unityAwaiter.done = resolve;
+      _unityAwaiter.abort = reject;
     });
-  </script>
-  <noscript><div><img src="https://mc.yandex.ru/watch/" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
-  <!-- /Yandex.Metrika counter -->
+    window.onGPInit = async (gp) => {
 
-  <script type="text/javascript" >
-    ym(window.yandexMetricaCounterId,'reachGoal','pageOpen');
 
-    addEventListener('DOMContentLoaded', (event) => {
-      const pageLoadTime = performance.timing.domContentLoadedEventStart - performance.timing.navigationStart;
-      ym(window.yandexMetricaCounterId,'reachGoal','pageLoad', { pageLoadTime: pageLoadTime / 1000 });
-    });
+      await _unityAwaiter.ready;
+      gp.gameStart();
+      window.GamePush = new GamePushUnity(gp, unityI);
+    };
   </script>
+
+  <!-- >>> replace with your gamepush load script here <<< -->
+  <script async
+    src="https://gs.eponesh.com/sdk/game-score.js?projectId=584&publicToken=HMFe4fTXa9f8-qCazavVBbi8nLmWGNB8&callback=onGPInit"></script>
+  <!-- >>> replace with your gamepush load script here <<< -->
+
 </head>
 
-<body style="margin: 0px; overflow: hidden;" oncontextmenu="return false;">
-  <canvas id="unity-canvas"
-    style="position: fixed; width: 100%; height: 100%; background: #231F20">
-  </canvas>
+<body class="dark">
+  <div id="unity-container" class="unity-desktop">
+    <canvas id="unity-canvas"></canvas>
+  </div>
+  <div id="loading-cover" style="display:none;">
+    <div id="unity-loading-bar">
+      <div id="unity-logo"><img src="logo.png"></div>
+      <div id="unity-progress-bar-empty" style="display: none;">
+        <div id="unity-progress-bar-full"></div>
+      </div>
+      <div class="spinner"></div>
+    </div>
+  </div>
 
-  <div id="progress-bar" style="position: absolute; left: 0%; right: 100%; top: 49%; bottom: 49%; background-color: white;"></div>
-
-  <script src="Build/eba167c880298aa6ad7e88aa47e6acb3.js"></script>
   <script>
-    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|BB|PlayBook|IEMobile|Windows Phone|Kindle|Silk|Opera Mini/i.test(navigator.userAgent);
-
-    const settings = {
-      dataUrl: "Build/6410beeab0a00bebe08bd663215e6e13.data.unityweb",
-      frameworkUrl: "Build/d48015d8afd774472faa78117d5bb518.js.unityweb",
-      codeUrl: "Build/e841483948a3d1d1c39043a9358a0127.wasm.unityweb",
+    const buildUrl = "Build";
+    const loaderUrl = buildUrl + "/WebGL.loader.js";
+    const config = {
+      dataUrl: buildUrl + "/fbd5d1e3aeb38f3f3bcf723363cc916b.data.unityweb",
+      frameworkUrl: buildUrl + "/423b8325b5184d082273f0ee2ec77697.js.unityweb",
+      codeUrl: buildUrl + "/20a4b3d51ce46c731a0f59219d7ff2e3.wasm.unityweb",
       streamingAssetsUrl: "StreamingAssets",
-      companyName: "DefaultCompany",
-      productName: "AgavaWebTemplate",
-      productVersion: "0.1",
-      matchWebGLToCanvasSize: true,
-      devicePixelRatio: !isMobileDevice ? 2 : 1.6,
+      companyName: "Game Push",
+      productName: "Game Push Demo",
+      productVersion: "1",
     };
 
-    const progressBar = document.querySelector("#progress-bar");
+    const container = document.querySelector("#unity-container");
+    const canvas = document.querySelector("#unity-canvas");
+    const loadingCover = document.querySelector("#loading-cover");
+    const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
+    const progressBarFull = document.querySelector("#unity-progress-bar-full");
+    const spinner = document.querySelector('.spinner');
 
-    const unityStartLoadingTime = performance.now();
-    let unityEndLoadingTime = 0;
-    setTimeout(() => {
-      createUnityInstance(document.querySelector("#unity-canvas"), settings, (progress) => {
-        progressBar.style.right = 100 * (1 - progress) + "%";
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      container.className = "unity-mobile";
+    }
+
+    loadingCover.style.display = "";
+
+    const script = document.createElement("script");
+    var unityI = null;
+    script.src = loaderUrl;
+    script.onload = () => {
+      createUnityInstance(canvas, config, (progress) => {
+        spinner.style.display = "none";
+        progressBarEmpty.style.display = "";
+        progressBarFull.style.width = `${100 * progress}%`;
       }).then((unityInstance) => {
-        progressBar.style.display = "none";
-        unityEndLoadingTime = performance.now();
-        unityInstance.Module.errorHandler = (errorMessage) => {
-          const unityCrashTime = performance.now();
-          const unityCrashPlaytime = unityEndLoadingTime === 0 ? 0 : (unityCrashTime - unityEndLoadingTime) / 1000;
-          ym(window.yandexMetricaCounterId, 'reachGoal', 'unityGameCrash', { unityCrashPlaytime: unityCrashPlaytime });
-        };
-        ym(window.yandexMetricaCounterId,'reachGoal','unityStart', { unityLoadTime: (unityEndLoadingTime - unityStartLoadingTime) / 1000 });
-      }).catch((errorMessage) => {
-        ym(window.yandexMetricaCounterId, 'reachGoal', 'unityLoadingCrash');
-        alert(errorMessage);
+        _unityAwaiter.done(unityInstance);
+        unityI = unityInstance;
+        loadingCover.style.display = "none";
+      }).catch((message) => {
+        _unityAwaiter.abort(message);
+        alert(message);
       });
-    }, 500); // Wait half a second before loading. Makes page more responsive on reload.
-  </script>
+    };
+    document.body.appendChild(script);
 
-  <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js">
-    vkBridge.send('VKWebAppInit');
+    document.addEventListener("pointerdown", () => {
+      container.focus();
+      window.focus();
+      canvas.focus();
+    });
+
   </script>
 </body>
 
