@@ -4,7 +4,55 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>ZombieGame</title>
+  <title>Ми-мимишки Приключения</title>
+  <style>
+    .loading-container {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .loading-spinner {
+      display: flex;
+      gap: min(1vw, 1vh);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .dot {
+      width: min(2vw, 2vh);
+      height: min(2vw, 2vh);
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      position: relative;
+      --active: 0;
+      opacity: 0;
+      animation: fadeIn 0.5s ease-out 0.5s forwards;
+    }
+
+    .dot::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: white;
+      border-radius: 50%;
+      opacity: var(--active);
+      box-shadow: 0 0 min(0.5vw, 0.5vh) rgba(255, 255, 255, 0.5);
+      animation: pulse 1.5s infinite;
+      transition: opacity 0.3s ease-out 1.5s;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+    }
+
+    @keyframes fadeIn {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+  </style>
 </head>
 
 <body style="margin: 0px; overflow: hidden;" oncontextmenu="return false;">
@@ -12,35 +60,72 @@
     style="position: fixed; width: 100%; height: 100%; background: #231F20">
   </canvas>
 
-  <div id="progress-bar" style="position: absolute; left: 0%; right: 100%; top: 49%; bottom: 49%; background-color: white;"></div>
+  <div id="loading-container" class="loading-container">
+    <div id="loading-spinner" class="loading-spinner">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+  </div>
 
-  <script src="Build/WebGL.loader.js"></script>
+  <script src="Build/7a7fdae01aa970d9a9f4a81939aa578b.loader.js"></script>
   <script>
-    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|BB|PlayBook|IEMobile|Windows Phone|Kindle|Silk|Opera Mini/i.test(navigator.userAgent);
+    const isMobileDevice = navigator.maxTouchPoints > 0 && !!document.createElement('canvas').getContext('webgl')?.getExtension('WEBGL_compressed_texture_etc2');
+
+    const desktopPixelCount = 3686400;
+    const mobilePixelCount = 921600;
 
     const settings = {
-      dataUrl: "Build/e1f5fc53874712394706a628677e815d.data",
-      frameworkUrl: "Build/6c48dc8e318339721ae40bbc4e4a1a38.js",
-      codeUrl: "Build/e54fb9b0e3c27e3a8eca87ccc18b3720.wasm",
+      arguments: [],
+      dataUrl: "Build/f258ba6222e434bc5168dc998c3f1604.data",
+      frameworkUrl: "Build/2494dc9904a1b9d3734e1c6b1dd845f7.framework.js",
+      codeUrl: "Build/2d56c9216328a1e4508f26e7e219e4c8.wasm",
       streamingAssetsUrl: "StreamingAssets",
-      companyName: "DefaultCompany",
-      productName: "ZombieGame",
-      productVersion: "0.1",
-      matchWebGLToCanvasSize: true,
-      devicePixelRatio: !isMobileDevice ? 1 : 1,
+      companyName: "mediatelekim",
+      productName: "Ми-мимишки Приключения",
+      productVersion: "1.0.0",
+      matchWebGLToCanvasSize: false,
+      devicePixelRatio: 1,
     };
 
-    const progressBar = document.querySelector("#progress-bar");
+    const unityCanvas = document.querySelector("#unity-canvas");
+    const loadingContainer = document.querySelector("#loading-container");
+    const dots = document.querySelectorAll(".dot");
 
-    setTimeout(() => {
-      createUnityInstance(document.querySelector("#unity-canvas"), settings, (progress) => {
-        progressBar.style.right = 100 * (1 - progress) + "%";
-      }).then(() => {
-        progressBar.style.display = "none";
-      }).catch((message) => {
-        alert(message);
+    createUnityInstance(unityCanvas, settings, (progress) => {
+      window.unityLoadingProgress = progress;
+
+      const normalizedProgress = Math.min(1, progress / 0.9);
+      dots.forEach((dot, index) => {
+        const dotProgress = Math.max(0, Math.min(1, (normalizedProgress * 3) - index));
+        dot.style.setProperty('--active', dotProgress);
       });
-    }, 500); // Wait half a second before loading. Makes page more responsive on reload.
+    }).then((unityInstance) => {
+      window.unityInstance = unityInstance;
+
+      loadingContainer.style.display = "none";
+
+      function adjustResolution() {
+        const targetPixelCount = isMobileDevice ? mobilePixelCount : desktopPixelCount;
+        const aspectRatio = window.innerWidth / window.innerHeight;
+
+        let renderHeight = Math.round(Math.sqrt(targetPixelCount / aspectRatio));
+        let renderWidth = Math.round(renderHeight * aspectRatio);
+
+        const scale = Math.sqrt(targetPixelCount / (renderWidth * renderHeight));
+        renderWidth = Math.round(renderWidth * scale);
+        renderHeight = Math.round(renderHeight * scale);
+        
+        unityCanvas.width = renderWidth;
+        unityCanvas.height = renderHeight;
+      }
+
+      window.addEventListener('resize', adjustResolution);
+      adjustResolution();
+    }).catch((errorMessage) => {
+      console.error(errorMessage);
+      alert(errorMessage);
+    });
   </script>
 </body>
 
