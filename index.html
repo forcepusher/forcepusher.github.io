@@ -194,6 +194,22 @@
       render();
     });
 
+    // Listen for a native back signal from host (Android WebView).
+    // Host should dispatch a CustomEvent named 'nativeback'.
+    window.addEventListener('nativeback', (e) => {
+      const detail = (e && e.detail) ? JSON.stringify(e.detail) : '';
+      noteRecent('nativeback:' + detail);
+      // briefly show it in pressed keys area
+      pressedKeys.set('nativeback', {key: 'Back', code: 'nativeback'});
+      render();
+      setTimeout(()=>{ pressedKeys.delete('nativeback'); render(); }, 800);
+      // re-dispatch as a synthetic KeyboardEvent for existing handlers if needed
+      try{
+        const kev = new KeyboardEvent('keydown', {key:'Back', code:'Back', keyCode:4, which:4});
+        window.dispatchEvent(kev);
+      }catch(_){ }
+    });
+
     // Prevent-back checkbox wiring
     const preventEl = overlay.querySelector('#kp-prevent');
     let preventBack = false;
