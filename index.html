@@ -39,6 +39,7 @@
     });
 
     overlay.innerHTML = '<div style="font-weight:600;margin-bottom:6px">Input Monitor</div>' +
+      '<div style="margin-bottom:6px"><label style="font-size:12px;color:#ddd"><input id="kp-prevent" type="checkbox" style="margin-right:6px">Prevent Back</label></div>' +
       '<div><strong>Keyboard:</strong> <span id="kp-keys">None</span></div>' +
       '<div><strong>Gamepads:</strong> <span id="kp-gpads">None</span></div>' +
       '<div style="margin-top:6px;font-size:12px;color:#ddd" id="kp-recent"></div>';
@@ -68,19 +69,28 @@
       recentEl.textContent = recent.length ? 'Recent: ' + recent.join(' · ') : '';
     }
 
+    // capture-phase keydown so we observe keys even if page default navigates
     window.addEventListener('keydown', (e) => {
       const name = e.key === ' ' ? 'Space' : e.key;
-      pressedKeys.set(name + '|' + (e.code||e.keyCode), {key: name, code: e.code, keyCode: e.keyCode});
-      noteRecent('keydown:' + name + ' code=' + (e.code||e.keyCode));
+      // if user enabled prevent-back, try to stop navigation keys from leaving the page
+      if(preventBack && (
+        name === 'Back' || name === 'BrowserBack' || name === 'SoftLeft' || name === 'SoftRight' ||
+        name === 'Escape' || name === 'Backspace' || e.keyCode === 4 || e.keyCode === 8 || e.keyCode === 27
+      )){
+        try{ e.preventDefault(); e.stopImmediatePropagation(); }catch(_){ }
+        noteRecent('prevented:' + name + ' code=' + (e.code||e.keyCode));
+      }
+      pressedKeys.set(name + '|' + (e.code||e.keyCode), {key: name, code: e.code, keyCode: e.keyCode, which: e.which, loc: e.location, rep: e.repeat});
+      noteRecent('keydown:' + name + ' code=' + (e.code||e.keyCode) + ' which=' + e.which + ' loc=' + e.location);
       render();
-    });
+    }, true);
 
     window.addEventListener('keyup', (e) => {
       const name = e.key === ' ' ? 'Space' : e.key;
       pressedKeys.delete(name + '|' + (e.code||e.keyCode));
-      noteRecent('keyup:' + name + ' code=' + (e.code||e.keyCode));
+      noteRecent('keyup:' + name + ' code=' + (e.code||e.keyCode) + ' which=' + e.which);
       render();
-    });
+    }, true);
 
     // Input events (mobile/IME)
     document.addEventListener('input', (e) => {
@@ -184,11 +194,19 @@
       render();
     });
 
+    // Prevent-back checkbox wiring
+    const preventEl = overlay.querySelector('#kp-prevent');
+    let preventBack = false;
+    if(preventEl){
+      preventEl.addEventListener('change', ()=>{ preventBack = !!preventEl.checked; noteRecent('preventBack=' + preventBack); });
+    }
+
     try{ if(navigator.getGamepads && Array.from(navigator.getGamepads()).some(g=>g)) startGamepadPolling(); }catch(_){}
 
     const clog = (...a)=>{ try{ console.log.apply(console, ['[input-monitor]',...a]); }catch(e){} };
-    window.addEventListener('keydown', (e)=> clog('keydown', e.key, e.code, e.keyCode));
-    window.addEventListener('keyup', (e)=> clog('keyup', e.key, e.code, e.keyCode));
+    // extra verbose capture-phase logger to help identify odd back-button signals
+    window.addEventListener('keydown', (e)=> clog('keydown', {key:e.key, code:e.code, keyCode:e.keyCode, which:e.which, location:e.location, repeat:e.repeat}), true);
+    window.addEventListener('keyup', (e)=> clog('keyup', {key:e.key, code:e.code, keyCode:e.keyCode, which:e.which}), true);
 
     render();
   })();
