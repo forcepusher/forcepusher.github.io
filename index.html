@@ -17,168 +17,181 @@
 </head>
 
 <body>
-  <script type="module" src="index.mjs"></script>
+  
   <script>
-    (function () {
-      if (window.__buttonTracker) return;
-      const events = [];
-      const MAX_TEXT = 200;
-      function now() { return new Date().toISOString(); }
-      function shortText(s) {
-        if (!s) return "";
-        s = String(s).trim().replace(/\s+/g, " ");
-        return s.length > MAX_TEXT ? s.slice(0, MAX_TEXT) + "…" : s;
-      }
-      function cssPath(el) {
-        if (!el || el === document) return "";
-        try {
-          if (el.id) return `#${el.id}`;
-          const parts = [];
-          while (el && el.nodeType === 1 && el !== document.body) {
-            let part = el.nodeName.toLowerCase();
-            if (el.className) {
-              const cls = String(el.className).trim().split(/\s+/)[0];
-              if (cls) part += `.${cls}`;
-            }
-            const parent = el.parentElement;
-            if (parent) {
-              const siblings = Array.from(parent.children).filter(c => c.nodeName === el.nodeName);
-              if (siblings.length > 1) {
-                const index = Array.prototype.indexOf.call(parent.children, el) + 1;
-                part += `:nth-child(${index})`;
-              }
-            }
-            parts.unshift(part);
-            el = parent;
-          }
-          return parts.length ? parts.join(" > ") : "";
-        } catch (err) { return ""; }
-      }
-      function summarizeTarget(t) {
-        try {
-          return {
-            tag: t && t.tagName ? t.tagName.toLowerCase() : null,
-            id: t && t.id ? t.id : null,
-            classes: t && t.className ? String(t.className).trim() : null,
-            role: t && t.getAttribute ? t.getAttribute('role') : null,
-            name: t && t.getAttribute ? (t.getAttribute('name') || t.getAttribute('aria-label')) : null,
-            value: t && t.value != null ? String(t.value) : null,
-            typeAttr: t && t.getAttribute ? t.getAttribute('type') : null,
-            text: shortText(t && (t.innerText || t.textContent || t.value) || ""),
-            selector: cssPath(t)
-          };
-        } catch (err) { return {}; }
-      }
+  (function(){
+    const overlay = document.createElement('div');
+    Object.assign(overlay.style, {
+      position: 'fixed',
+      right: '12px',
+      top: '12px',
+      zIndex: 999999,
+      background: 'rgba(0,0,0,0.85)',
+      color: '#fff',
+      padding: '10px 14px',
+      borderRadius: '8px',
+      fontFamily: 'system-ui,Segoe UI,Roboto,Arial',
+      fontSize: '13px',
+      minWidth: '220px',
+      maxWidth: '60vw',
+      wordBreak: 'break-word',
+      boxShadow: '0 6px 18px rgba(0,0,0,0.3)'
+    });
 
-      function isButtonLikeSummary(s) {
-        if (!s) return false;
-        if (s.tag === 'button') return true;
-        if (s.tag === 'input' && s.typeAttr && ['button','submit'].includes(s.typeAttr.toLowerCase())) return true;
-        if (s.role && s.role.toLowerCase() === 'button') return true;
-        if (s.selector && /button|\[role=(?:"|')?button(?:"|')?/.test(s.selector)) return true;
-        return false;
-      }
+    overlay.innerHTML = '<div style="font-weight:600;margin-bottom:6px">Input Monitor</div>' +
+      '<div><strong>Keyboard:</strong> <span id="kp-keys">None</span></div>' +
+      '<div><strong>Gamepads:</strong> <span id="kp-gpads">None</span></div>' +
+      '<div style="margin-top:6px;font-size:12px;color:#ddd" id="kp-recent"></div>';
+    document.body.appendChild(overlay);
 
-      function record(item) {
-        item.ts = now();
-        events.push(item);
-        try {
-          // Log every captured event without filtering so TV remote keycodes are visible
-          console.log('[button-tracker]', item.type, item.target && item.target.selector, item);
-        } catch (err) {}
-      }
+    const keysEl = overlay.querySelector('#kp-keys');
+    const gpadsEl = overlay.querySelector('#kp-gpads');
+    const recentEl = overlay.querySelector('#kp-recent');
 
-      function handleEvent(e) {
-        const t = e.target || e.srcElement;
-        const base = {
-          type: e.type,
-          target: summarizeTarget(t),
-          meta: {}
-        };
-        if (e instanceof KeyboardEvent) {
-          base.meta.key = e.key;
-          base.meta.code = e.code;
-          base.meta.keyCode = e.keyCode;
-          if (e.type === 'keydown' && (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 32)) {
-            const active = document.activeElement;
-            const activated = (active && (active.closest && (active.closest('button,input[type="button"],input[type="submit"],[role="button"]')))) || active;
-            if (activated) {
-              base.meta.keyboardActivated = true;
-              base.meta.activatedSelector = cssPath(activated);
-              base.meta.activatedTag = activated.tagName ? activated.tagName.toLowerCase() : null;
-              base.target = summarizeTarget(activated);
-            }
-          }
+    const pressedKeys = new Map(); // key -> {key, code, keyCode}
+    const recent = [];
+
+    function noteRecent(s){
+      recent.unshift((new Date()).toLocaleTimeString() + ' ' + s);
+      if(recent.length>12) recent.pop();
+      render();
+    }
+
+    function render(){
+      if(pressedKeys.size){
+        keysEl.textContent = Array.from(pressedKeys.values()).map(v => `${v.key} (${v.code || v.keyCode})`).join(' + ');
+      } else keysEl.textContent = 'None';
+
+      const gps = buildGamepadPressedDisplay();
+      gpadsEl.textContent = gps || 'None';
+
+      recentEl.textContent = recent.length ? 'Recent: ' + recent.join(' · ') : '';
+    }
+
+    window.addEventListener('keydown', (e) => {
+      const name = e.key === ' ' ? 'Space' : e.key;
+      pressedKeys.set(name + '|' + (e.code||e.keyCode), {key: name, code: e.code, keyCode: e.keyCode});
+      noteRecent('keydown:' + name + ' code=' + (e.code||e.keyCode));
+      render();
+    });
+
+    window.addEventListener('keyup', (e) => {
+      const name = e.key === ' ' ? 'Space' : e.key;
+      pressedKeys.delete(name + '|' + (e.code||e.keyCode));
+      noteRecent('keyup:' + name + ' code=' + (e.code||e.keyCode));
+      render();
+    });
+
+    // Input events (mobile/IME)
+    document.addEventListener('input', (e) => {
+      const text = e.data ?? '';
+      if(text){
+        noteRecent('input:' + text);
+        // briefly show the character
+        pressedKeys.set('input:' + text, {key: text, code: 'input'});
+        render();
+        setTimeout(()=>{ pressedKeys.delete('input:' + text); render(); }, 700);
+      }
+    }, true);
+
+    // IME composition end
+    document.addEventListener('compositionend', (e)=>{
+      const text = e.data || '';
+      if(text){
+        noteRecent('composition:' + text);
+        pressedKeys.set('composition:' + text, {key: text, code: 'composition'});
+        render();
+        setTimeout(()=>{ pressedKeys.delete('composition:' + text); render(); }, 900);
+      }
+    }, true);
+
+    // Clear on blur/hidden
+    window.addEventListener('blur', ()=>{ pressedKeys.clear(); noteRecent('blur'); render(); });
+    document.addEventListener('visibilitychange', ()=>{ if(document.hidden){ pressedKeys.clear(); noteRecent('hidden'); render(); }});
+
+    // Click overlay to collapse/expand
+    let collapsed = false;
+    overlay.style.cursor = 'pointer';
+    overlay.addEventListener('click', ()=>{
+      collapsed = !collapsed;
+      overlay.style.height = collapsed ? '30px' : '';
+      overlay.style.overflow = collapsed ? 'hidden' : '';
+      render();
+    });
+
+    // --- Gamepad / TV remote support ---
+    const gpState = {}; // index -> {buttons: Set(indexes), id}
+
+    function buildGamepadPressedDisplay(){
+      const gp = navigator.getGamepads ? navigator.getGamepads() : [];
+      const parts = [];
+      for(let i=0;i<gp.length;i++){
+        const g = gp[i];
+        if(!g) continue;
+        const pressed = [];
+        for(let b=0;b<g.buttons.length;b++){
+          if(g.buttons[b].pressed) pressed.push(buttonName(g,b));
         }
-        if (e instanceof MouseEvent || e instanceof PointerEvent) {
-          base.meta.button = e.button;
-          base.meta.clientX = e.clientX;
-          base.meta.clientY = e.clientY;
-        }
-        if (e instanceof TouchEvent) base.meta.touches = e.touches ? e.touches.length : 0;
-        record(base);
+        if(pressed.length) parts.push(`${g.id.split('\n')[0]}: ${pressed.join(', ')}`);
       }
+      return parts.join(' | ');
+    }
 
-      const listenEvents = [
-        'click','dblclick','auxclick','contextmenu',
-        'pointerdown','pointerup','mousedown','mouseup',
-        'touchstart','touchend',
-        'keydown','keyup','keypress',
-        'submit'
-      ];
-
-      listenEvents.forEach(name => {
-        try { document.addEventListener(name, handleEvent, { capture: true, passive: true }); } catch (err) { try { document.addEventListener(name, handleEvent, true); } catch (e) {} }
-      });
-
-      // Also attach key listeners to window as some TV platforms deliver remote keys at window-level
-      ['keydown','keyup','keypress'].forEach(name => {
-        try { window.addEventListener(name, handleEvent, { capture: true }); } catch (err) { try { window.addEventListener(name, handleEvent, true); } catch (e) {} }
-      });
-
-      (function patchProto(proto, methodName, label) {
-        if (!proto) return;
-        const orig = proto[methodName];
-        if (!orig || orig.__patchedByButtonTracker) return;
-        const wrapper = function () {
-          try {
-            record({ type: 'programmatic-' + (label || methodName), target: summarizeTarget(this), meta: { argsLength: arguments.length } });
-          } catch (err) {}
-          return orig.apply(this, arguments);
-        };
-        wrapper.__patchedByButtonTracker = true;
-        proto[methodName] = wrapper;
-      })(Element.prototype, 'click', 'click');
-
-      (function () {
-        const proto = HTMLFormElement && HTMLFormElement.prototype;
-        if (!proto) return;
-        const orig = proto.submit;
-        if (!orig || orig.__patchedByButtonTracker) return;
-        const wrapper = function () {
-          try { record({ type: 'programmatic-submit', target: summarizeTarget(this) }); } catch (err) {}
-          return orig.apply(this, arguments);
-        };
-        wrapper.__patchedByButtonTracker = true;
-        proto.submit = wrapper;
-      })();
-
-      window.__buttonTracker = {
-        getEvents: () => events.slice(),
-        clear: () => { events.length = 0; },
-        download: (filename = 'button-events.json') => {
-          const blob = new Blob([JSON.stringify(events, null, 2)], { type: 'application/json' });
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(blob);
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-        },
-        stop: () => { listenEvents.forEach(name => { try { document.removeEventListener(name, handleEvent, { capture: true }); } catch {} try { document.removeEventListener(name, handleEvent, true); } catch {} }); },
-        start: () => { listenEvents.forEach(name => { try { document.addEventListener(name, handleEvent, { capture: true, passive: true }); } catch {} }); }
+    function buttonName(g, idx){
+      // common mappings; remotes vary so include index fallback
+      const map = {
+        0:'Btn0',1:'Btn1',2:'Btn2',3:'Btn3',4:'L1',5:'R1',6:'L2',7:'R2',8:'Select',9:'Start',10:'LStick',11:'RStick',12:'Up',13:'Down',14:'Left',15:'Right',16:'Home',17:'Back'
       };
-    })();
+      if(idx in map) return map[idx];
+      return 'B' + idx;
+    }
+
+    let gpPolling = false;
+    function startGamepadPolling(){
+      if(gpPolling) return; gpPolling = true;
+      let lastPressed = {};
+      function poll(){
+        const gps = navigator.getGamepads ? navigator.getGamepads() : [];
+        for(let i=0;i<gps.length;i++){
+          const g = gps[i];
+          if(!g) continue;
+          const nowPressed = [];
+          for(let b=0;b<g.buttons.length;b++) if(g.buttons[b].pressed) nowPressed.push(b);
+          const key = g.index + '|' + g.id;
+          const prev = lastPressed[key] || '';
+          const curr = nowPressed.join(',');
+          if(prev !== curr){
+            lastPressed[key] = curr;
+            if(nowPressed.length){
+              noteRecent('gamepad['+g.index+']:' + (g.id.split('\n')[0]) + ' pressed ' + nowPressed.map(i=>buttonName(g,i)).join(','));
+            } else {
+              noteRecent('gamepad['+g.index+']:' + (g.id.split('\n')[0]) + ' released');
+            }
+          }
+        }
+        render();
+        requestAnimationFrame(poll);
+      }
+      requestAnimationFrame(poll);
+    }
+
+    window.addEventListener('gamepadconnected',(e)=>{
+      noteRecent('gamepadconnected:' + e.gamepad.id);
+      startGamepadPolling();
+    });
+    window.addEventListener('gamepaddisconnected',(e)=>{
+      noteRecent('gamepaddisconnected:' + e.gamepad.id);
+      render();
+    });
+
+    try{ if(navigator.getGamepads && Array.from(navigator.getGamepads()).some(g=>g)) startGamepadPolling(); }catch(_){}
+
+    const clog = (...a)=>{ try{ console.log.apply(console, ['[input-monitor]',...a]); }catch(e){} };
+    window.addEventListener('keydown', (e)=> clog('keydown', e.key, e.code, e.keyCode));
+    window.addEventListener('keyup', (e)=> clog('keyup', e.key, e.code, e.keyCode));
+
+    render();
+  })();
   </script>
 </body>
 
