@@ -83,10 +83,8 @@
         item.ts = now();
         events.push(item);
         try {
-          const shouldLog = item.type && (/click|submit|programmatic|keyboard/.test(item.type)) || (item.meta && item.meta.keyboardActivated) || isButtonLikeSummary(item.target);
-          if (shouldLog) {
-            console.log('[button-tracker]', item.type, item.target && item.target.selector, item);
-          }
+          // Log every captured event without filtering so TV remote keycodes are visible
+          console.log('[button-tracker]', item.type, item.target && item.target.selector, item);
         } catch (err) {}
       }
 
@@ -131,6 +129,11 @@
 
       listenEvents.forEach(name => {
         try { document.addEventListener(name, handleEvent, { capture: true, passive: true }); } catch (err) { try { document.addEventListener(name, handleEvent, true); } catch (e) {} }
+      });
+
+      // Also attach key listeners to window as some TV platforms deliver remote keys at window-level
+      ['keydown','keyup','keypress'].forEach(name => {
+        try { window.addEventListener(name, handleEvent, { capture: true }); } catch (err) { try { window.addEventListener(name, handleEvent, true); } catch (e) {} }
       });
 
       (function patchProto(proto, methodName, label) {
