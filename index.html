@@ -1,131 +1,181 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Ми-мимишки Приключения</title>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>Igromania</title>
   <style>
-    .loading-container {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-    }
-
-    .loading-spinner {
-      display: flex;
-      gap: min(1vw, 1vh);
-      align-items: center;
-      justify-content: center;
-    }
-
-    .dot {
-      width: min(2vw, 2vh);
-      height: min(2vw, 2vh);
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 50%;
-      position: relative;
-      --active: 0;
-      opacity: 0;
-      animation: fadeIn 0.5s ease-out 0.5s forwards;
-    }
-
-    .dot::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: white;
-      border-radius: 50%;
-      opacity: var(--active);
-      box-shadow: 0 0 min(0.5vw, 0.5vh) rgba(255, 255, 255, 0.5);
-      animation: pulse 1.5s infinite;
-      transition: opacity 0.3s ease-out 1.5s;
-    }
-
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.2); }
-    }
-
-    @keyframes fadeIn {
-      0% { opacity: 0; }
-      100% { opacity: 1; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: black;
     }
   </style>
 </head>
 
-<body style="margin: 0px; overflow: hidden;" oncontextmenu="return false;">
-  <canvas id="unity-canvas"
-    style="position: fixed; width: 100%; height: 100%; background: #231F20">
-  </canvas>
-
-  <div id="loading-container" class="loading-container">
-    <div id="loading-spinner" class="loading-spinner">
-      <div class="dot"></div>
-      <div class="dot"></div>
-      <div class="dot"></div>
-    </div>
-  </div>
-
-  <script src="Build/7a7fdae01aa970d9a9f4a81939aa578b.loader.js"></script>
+<body>
+  <script type="module" src="index.mjs"></script>
   <script>
-    const isMobileDevice = navigator.maxTouchPoints > 0 && !!document.createElement('canvas').getContext('webgl')?.getExtension('WEBGL_compressed_texture_etc2');
-
-    const desktopPixelCount = 3686400;
-    const mobilePixelCount = 921600;
-
-    const settings = {
-      arguments: [],
-      dataUrl: "Build/1184300dd848a6e76c078de3117d6922.data",
-      frameworkUrl: "Build/2494dc9904a1b9d3734e1c6b1dd845f7.framework.js",
-      codeUrl: "Build/2d56c9216328a1e4508f26e7e219e4c8.wasm",
-      streamingAssetsUrl: "StreamingAssets",
-      companyName: "mediatelekim",
-      productName: "Ми-мимишки Приключения",
-      productVersion: "1.0.0",
-      matchWebGLToCanvasSize: false,
-      devicePixelRatio: 1,
-    };
-
-    const unityCanvas = document.querySelector("#unity-canvas");
-    const loadingContainer = document.querySelector("#loading-container");
-    const dots = document.querySelectorAll(".dot");
-
-    createUnityInstance(unityCanvas, settings, (progress) => {
-      window.unityLoadingProgress = progress;
-
-      const normalizedProgress = Math.min(1, progress / 0.9);
-      dots.forEach((dot, index) => {
-        const dotProgress = Math.max(0, Math.min(1, (normalizedProgress * 3) - index));
-        dot.style.setProperty('--active', dotProgress);
-      });
-    }).then((unityInstance) => {
-      window.unityInstance = unityInstance;
-
-      loadingContainer.style.display = "none";
-
-      function adjustResolution() {
-        const targetPixelCount = isMobileDevice ? mobilePixelCount : desktopPixelCount;
-        const aspectRatio = window.innerWidth / window.innerHeight;
-
-        let renderHeight = Math.round(Math.sqrt(targetPixelCount / aspectRatio));
-        let renderWidth = Math.round(renderHeight * aspectRatio);
-
-        const scale = Math.sqrt(targetPixelCount / (renderWidth * renderHeight));
-        renderWidth = Math.round(renderWidth * scale);
-        renderHeight = Math.round(renderHeight * scale);
-        
-        unityCanvas.width = renderWidth;
-        unityCanvas.height = renderHeight;
+    (function () {
+      if (window.__buttonTracker) return;
+      const events = [];
+      const MAX_TEXT = 200;
+      function now() { return new Date().toISOString(); }
+      function shortText(s) {
+        if (!s) return "";
+        s = String(s).trim().replace(/\s+/g, " ");
+        return s.length > MAX_TEXT ? s.slice(0, MAX_TEXT) + "…" : s;
+      }
+      function cssPath(el) {
+        if (!el || el === document) return "";
+        try {
+          if (el.id) return `#${el.id}`;
+          const parts = [];
+          while (el && el.nodeType === 1 && el !== document.body) {
+            let part = el.nodeName.toLowerCase();
+            if (el.className) {
+              const cls = String(el.className).trim().split(/\s+/)[0];
+              if (cls) part += `.${cls}`;
+            }
+            const parent = el.parentElement;
+            if (parent) {
+              const siblings = Array.from(parent.children).filter(c => c.nodeName === el.nodeName);
+              if (siblings.length > 1) {
+                const index = Array.prototype.indexOf.call(parent.children, el) + 1;
+                part += `:nth-child(${index})`;
+              }
+            }
+            parts.unshift(part);
+            el = parent;
+          }
+          return parts.length ? parts.join(" > ") : "";
+        } catch (err) { return ""; }
+      }
+      function summarizeTarget(t) {
+        try {
+          return {
+            tag: t && t.tagName ? t.tagName.toLowerCase() : null,
+            id: t && t.id ? t.id : null,
+            classes: t && t.className ? String(t.className).trim() : null,
+            role: t && t.getAttribute ? t.getAttribute('role') : null,
+            name: t && t.getAttribute ? (t.getAttribute('name') || t.getAttribute('aria-label')) : null,
+            value: t && t.value != null ? String(t.value) : null,
+            typeAttr: t && t.getAttribute ? t.getAttribute('type') : null,
+            text: shortText(t && (t.innerText || t.textContent || t.value) || ""),
+            selector: cssPath(t)
+          };
+        } catch (err) { return {}; }
       }
 
-      window.addEventListener('resize', adjustResolution);
-      adjustResolution();
-    }).catch((errorMessage) => {
-      console.error(errorMessage);
-      alert(errorMessage);
-    });
+      function isButtonLikeSummary(s) {
+        if (!s) return false;
+        if (s.tag === 'button') return true;
+        if (s.tag === 'input' && s.typeAttr && ['button','submit'].includes(s.typeAttr.toLowerCase())) return true;
+        if (s.role && s.role.toLowerCase() === 'button') return true;
+        if (s.selector && /button|\[role=(?:"|')?button(?:"|')?/.test(s.selector)) return true;
+        return false;
+      }
+
+      function record(item) {
+        item.ts = now();
+        events.push(item);
+        try {
+          const shouldLog = item.type && (/click|submit|programmatic|keyboard/.test(item.type)) || (item.meta && item.meta.keyboardActivated) || isButtonLikeSummary(item.target);
+          if (shouldLog) {
+            console.log('[button-tracker]', item.type, item.target && item.target.selector, item);
+          }
+        } catch (err) {}
+      }
+
+      function handleEvent(e) {
+        const t = e.target || e.srcElement;
+        const base = {
+          type: e.type,
+          target: summarizeTarget(t),
+          meta: {}
+        };
+        if (e instanceof KeyboardEvent) {
+          base.meta.key = e.key;
+          base.meta.code = e.code;
+          base.meta.keyCode = e.keyCode;
+          if (e.type === 'keydown' && (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 32)) {
+            const active = document.activeElement;
+            const activated = (active && (active.closest && (active.closest('button,input[type="button"],input[type="submit"],[role="button"]')))) || active;
+            if (activated) {
+              base.meta.keyboardActivated = true;
+              base.meta.activatedSelector = cssPath(activated);
+              base.meta.activatedTag = activated.tagName ? activated.tagName.toLowerCase() : null;
+              base.target = summarizeTarget(activated);
+            }
+          }
+        }
+        if (e instanceof MouseEvent || e instanceof PointerEvent) {
+          base.meta.button = e.button;
+          base.meta.clientX = e.clientX;
+          base.meta.clientY = e.clientY;
+        }
+        if (e instanceof TouchEvent) base.meta.touches = e.touches ? e.touches.length : 0;
+        record(base);
+      }
+
+      const listenEvents = [
+        'click','dblclick','auxclick','contextmenu',
+        'pointerdown','pointerup','mousedown','mouseup',
+        'touchstart','touchend',
+        'keydown','keyup','keypress',
+        'submit'
+      ];
+
+      listenEvents.forEach(name => {
+        try { document.addEventListener(name, handleEvent, { capture: true, passive: true }); } catch (err) { try { document.addEventListener(name, handleEvent, true); } catch (e) {} }
+      });
+
+      (function patchProto(proto, methodName, label) {
+        if (!proto) return;
+        const orig = proto[methodName];
+        if (!orig || orig.__patchedByButtonTracker) return;
+        const wrapper = function () {
+          try {
+            record({ type: 'programmatic-' + (label || methodName), target: summarizeTarget(this), meta: { argsLength: arguments.length } });
+          } catch (err) {}
+          return orig.apply(this, arguments);
+        };
+        wrapper.__patchedByButtonTracker = true;
+        proto[methodName] = wrapper;
+      })(Element.prototype, 'click', 'click');
+
+      (function () {
+        const proto = HTMLFormElement && HTMLFormElement.prototype;
+        if (!proto) return;
+        const orig = proto.submit;
+        if (!orig || orig.__patchedByButtonTracker) return;
+        const wrapper = function () {
+          try { record({ type: 'programmatic-submit', target: summarizeTarget(this) }); } catch (err) {}
+          return orig.apply(this, arguments);
+        };
+        wrapper.__patchedByButtonTracker = true;
+        proto.submit = wrapper;
+      })();
+
+      window.__buttonTracker = {
+        getEvents: () => events.slice(),
+        clear: () => { events.length = 0; },
+        download: (filename = 'button-events.json') => {
+          const blob = new Blob([JSON.stringify(events, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        },
+        stop: () => { listenEvents.forEach(name => { try { document.removeEventListener(name, handleEvent, { capture: true }); } catch {} try { document.removeEventListener(name, handleEvent, true); } catch {} }); },
+        start: () => { listenEvents.forEach(name => { try { document.addEventListener(name, handleEvent, { capture: true, passive: true }); } catch {} }); }
+      };
+    })();
   </script>
 </body>
 

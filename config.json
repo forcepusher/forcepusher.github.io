@@ -1,0 +1,45 @@
+{
+    "playlist": [
+        {
+            "comment": "Half Life 3 Видос итоги недели",
+            "rutube": "9521aec24e8dce4d7ebebf2044cd6380",
+            "vk": "387766_456270847",
+            "qrCodes": [
+                {
+                    "comment": "Ведёт на канал рутуба, считает аналитику",
+                    "url": "https://rutube.ru/channel/23469276/",
+                    "title": "Канал Игромании",
+                    "position": { "x": 0.8, "y": 0.8 },
+                    "size": 0.2,
+                    "visibility": [
+                        { "start": "0:10", "end": "0:40" },
+                        { "start": "-0:50", "end": "-0:20" }
+                    ]
+                }
+            ]
+        },
+        {
+            "comment": "Хейт Escape from Tarkov",
+            "rutube": "специально-неправильный-айдишник-для-проверки-dea25788e75fafaec1c85b43b1fb2170",
+            "vk": "специально-неправильный-айдишник-для-проверки-387766_456270448"
+        },
+        {
+            "comment": "Backlog: Такого больше не делают. Всратые игры.",
+            "rutube": "1f1b62e2234892bcdf058a39a03c37d1",
+            "vk": "387766_456266809"
+        }
+    ],
+    "blocklist": {
+        "rutube": [
+            "goya.rutube.ru",
+            "ads.adfox.ru",
+            "yandex.ru/ads",
+            "adhigh.net",
+            "vk.com",
+            "mail.ru"
+        ],
+        "vk": [
+            
+        ]
+    }
+}
