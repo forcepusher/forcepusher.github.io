@@ -1,232 +1,122 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Unity WebGL Player | TVInput</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+  </head>
+  <body>
+    <div id="unity-container" class="unity-desktop">
+      <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
+      <div id="unity-loading-bar">
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+      <div id="unity-warning"> </div>
+      <div id="unity-footer">
+        <div id="unity-webgl-logo"></div>
+        <div id="unity-fullscreen-button"></div>
+        <div id="unity-build-title">TVInput</div>
+      </div>
+    </div>
+    <script>
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport"
-    content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <title>Igromania</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background: black;
-    }
-  </style>
-</head>
+      var container = document.querySelector("#unity-container");
+      var canvas = document.querySelector("#unity-canvas");
+      var loadingBar = document.querySelector("#unity-loading-bar");
+      var progressBarFull = document.querySelector("#unity-progress-bar-full");
+      var fullscreenButton = document.querySelector("#unity-fullscreen-button");
+      var warningBanner = document.querySelector("#unity-warning");
 
-<body>
-  
-  <script>
-  (function(){
-    const overlay = document.createElement('div');
-    Object.assign(overlay.style, {
-      position: 'fixed',
-      right: '12px',
-      top: '12px',
-      zIndex: 999999,
-      background: 'rgba(0,0,0,0.85)',
-      color: '#fff',
-      padding: '10px 14px',
-      borderRadius: '8px',
-      fontFamily: 'system-ui,Segoe UI,Roboto,Arial',
-      fontSize: '13px',
-      minWidth: '220px',
-      maxWidth: '60vw',
-      wordBreak: 'break-word',
-      boxShadow: '0 6px 18px rgba(0,0,0,0.3)'
-    });
-
-    overlay.innerHTML = '<div style="font-weight:600;margin-bottom:6px">Input Monitor</div>' +
-      '<div style="margin-bottom:6px"><label style="font-size:12px;color:#ddd"><input id="kp-prevent" type="checkbox" style="margin-right:6px">Prevent Back</label></div>' +
-      '<div><strong>Keyboard:</strong> <span id="kp-keys">None</span></div>' +
-      '<div><strong>Gamepads:</strong> <span id="kp-gpads">None</span></div>' +
-      '<div style="margin-top:6px;font-size:12px;color:#ddd" id="kp-recent"></div>';
-    document.body.appendChild(overlay);
-
-    const keysEl = overlay.querySelector('#kp-keys');
-    const gpadsEl = overlay.querySelector('#kp-gpads');
-    const recentEl = overlay.querySelector('#kp-recent');
-
-    const pressedKeys = new Map(); // key -> {key, code, keyCode}
-    const recent = [];
-
-    function noteRecent(s){
-      recent.unshift((new Date()).toLocaleTimeString() + ' ' + s);
-      if(recent.length>12) recent.pop();
-      render();
-    }
-
-    function render(){
-      if(pressedKeys.size){
-        keysEl.textContent = Array.from(pressedKeys.values()).map(v => `${v.key} (${v.code || v.keyCode})`).join(' + ');
-      } else keysEl.textContent = 'None';
-
-      const gps = buildGamepadPressedDisplay();
-      gpadsEl.textContent = gps || 'None';
-
-      recentEl.textContent = recent.length ? 'Recent: ' + recent.join(' · ') : '';
-    }
-
-    // capture-phase keydown so we observe keys even if page default navigates
-    window.addEventListener('keydown', (e) => {
-      const name = e.key === ' ' ? 'Space' : e.key;
-      // if user enabled prevent-back, try to stop navigation keys from leaving the page
-      if(preventBack && (
-        name === 'Back' || name === 'BrowserBack' || name === 'SoftLeft' || name === 'SoftRight' ||
-        name === 'Escape' || name === 'Backspace' || e.keyCode === 4 || e.keyCode === 8 || e.keyCode === 27
-      )){
-        try{ e.preventDefault(); e.stopImmediatePropagation(); }catch(_){ }
-        noteRecent('prevented:' + name + ' code=' + (e.code||e.keyCode));
-      }
-      pressedKeys.set(name + '|' + (e.code||e.keyCode), {key: name, code: e.code, keyCode: e.keyCode, which: e.which, loc: e.location, rep: e.repeat});
-      noteRecent('keydown:' + name + ' code=' + (e.code||e.keyCode) + ' which=' + e.which + ' loc=' + e.location);
-      render();
-    }, true);
-
-    window.addEventListener('keyup', (e) => {
-      const name = e.key === ' ' ? 'Space' : e.key;
-      pressedKeys.delete(name + '|' + (e.code||e.keyCode));
-      noteRecent('keyup:' + name + ' code=' + (e.code||e.keyCode) + ' which=' + e.which);
-      render();
-    }, true);
-
-    // Input events (mobile/IME)
-    document.addEventListener('input', (e) => {
-      const text = e.data ?? '';
-      if(text){
-        noteRecent('input:' + text);
-        // briefly show the character
-        pressedKeys.set('input:' + text, {key: text, code: 'input'});
-        render();
-        setTimeout(()=>{ pressedKeys.delete('input:' + text); render(); }, 700);
-      }
-    }, true);
-
-    // IME composition end
-    document.addEventListener('compositionend', (e)=>{
-      const text = e.data || '';
-      if(text){
-        noteRecent('composition:' + text);
-        pressedKeys.set('composition:' + text, {key: text, code: 'composition'});
-        render();
-        setTimeout(()=>{ pressedKeys.delete('composition:' + text); render(); }, 900);
-      }
-    }, true);
-
-    // Clear on blur/hidden
-    window.addEventListener('blur', ()=>{ pressedKeys.clear(); noteRecent('blur'); render(); });
-    document.addEventListener('visibilitychange', ()=>{ if(document.hidden){ pressedKeys.clear(); noteRecent('hidden'); render(); }});
-
-    // Click overlay to collapse/expand
-    let collapsed = false;
-    overlay.style.cursor = 'pointer';
-    overlay.addEventListener('click', ()=>{
-      collapsed = !collapsed;
-      overlay.style.height = collapsed ? '30px' : '';
-      overlay.style.overflow = collapsed ? 'hidden' : '';
-      render();
-    });
-
-    // --- Gamepad / TV remote support ---
-    const gpState = {}; // index -> {buttons: Set(indexes), id}
-
-    function buildGamepadPressedDisplay(){
-      const gp = navigator.getGamepads ? navigator.getGamepads() : [];
-      const parts = [];
-      for(let i=0;i<gp.length;i++){
-        const g = gp[i];
-        if(!g) continue;
-        const pressed = [];
-        for(let b=0;b<g.buttons.length;b++){
-          if(g.buttons[b].pressed) pressed.push(buttonName(g,b));
+      // Shows a temporary message banner/ribbon for a few seconds, or
+      // a permanent error message on top of the canvas if type=='error'.
+      // If type=='warning', a yellow highlight color is used.
+      // Modify or remove this function to customize the visually presented
+      // way that non-critical warnings and error messages are presented to the
+      // user.
+      function unityShowBanner(msg, type) {
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
         }
-        if(pressed.length) parts.push(`${g.id.split('\n')[0]}: ${pressed.join(', ')}`);
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
       }
-      return parts.join(' | ');
-    }
 
-    function buttonName(g, idx){
-      // common mappings; remotes vary so include index fallback
-      const map = {
-        0:'Btn0',1:'Btn1',2:'Btn2',3:'Btn3',4:'L1',5:'R1',6:'L2',7:'R2',8:'Select',9:'Start',10:'LStick',11:'RStick',12:'Up',13:'Down',14:'Left',15:'Right',16:'Home',17:'Back'
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/Web.loader.js";
+      var config = {
+        dataUrl: buildUrl + "/Web.data",
+        frameworkUrl: buildUrl + "/Web.framework.js",
+        codeUrl: buildUrl + "/Web.wasm",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "DefaultCompany",
+        productName: "TVInput",
+        productVersion: "0.1",
+        showBanner: unityShowBanner,
       };
-      if(idx in map) return map[idx];
-      return 'B' + idx;
-    }
 
-    let gpPolling = false;
-    function startGamepadPolling(){
-      if(gpPolling) return; gpPolling = true;
-      let lastPressed = {};
-      function poll(){
-        const gps = navigator.getGamepads ? navigator.getGamepads() : [];
-        for(let i=0;i<gps.length;i++){
-          const g = gps[i];
-          if(!g) continue;
-          const nowPressed = [];
-          for(let b=0;b<g.buttons.length;b++) if(g.buttons[b].pressed) nowPressed.push(b);
-          const key = g.index + '|' + g.id;
-          const prev = lastPressed[key] || '';
-          const curr = nowPressed.join(',');
-          if(prev !== curr){
-            lastPressed[key] = curr;
-            if(nowPressed.length){
-              noteRecent('gamepad['+g.index+']:' + (g.id.split('\n')[0]) + ' pressed ' + nowPressed.map(i=>buttonName(g,i)).join(','));
-            } else {
-              noteRecent('gamepad['+g.index+']:' + (g.id.split('\n')[0]) + ' released');
-            }
-          }
-        }
-        render();
-        requestAnimationFrame(poll);
+      // By default, Unity keeps WebGL canvas render target size matched with
+      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
+      // Set this to false if you want to decouple this synchronization from
+      // happening inside the engine, and you would instead like to size up
+      // the canvas DOM size and WebGL render target sizes yourself.
+      // config.matchWebGLToCanvasSize = false;
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // Mobile device style: fill the whole browser client area with the game canvas:
+
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+        container.className = "unity-mobile";
+        canvas.className = "unity-mobile";
+
+        // To lower canvas resolution on mobile devices to gain some
+        // performance, uncomment the following line:
+        // config.devicePixelRatio = 1;
+
+
+      } else {
+        // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
+
+        canvas.style.width = "960px";
+        canvas.style.height = "600px";
       }
-      requestAnimationFrame(poll);
-    }
 
-    window.addEventListener('gamepadconnected',(e)=>{
-      noteRecent('gamepadconnected:' + e.gamepad.id);
-      startGamepadPolling();
-    });
-    window.addEventListener('gamepaddisconnected',(e)=>{
-      noteRecent('gamepaddisconnected:' + e.gamepad.id);
-      render();
-    });
+      loadingBar.style.display = "block";
 
-    // Listen for a native back signal from host (Android WebView).
-    // Host should dispatch a CustomEvent named 'nativeback'.
-    window.addEventListener('nativeback', (e) => {
-      const detail = (e && e.detail) ? JSON.stringify(e.detail) : '';
-      noteRecent('nativeback:' + detail);
-      // briefly show it in pressed keys area
-      pressedKeys.set('nativeback', {key: 'Back', code: 'nativeback'});
-      render();
-      setTimeout(()=>{ pressedKeys.delete('nativeback'); render(); }, 800);
-      // re-dispatch as a synthetic KeyboardEvent for existing handlers if needed
-      try{
-        const kev = new KeyboardEvent('keydown', {key:'Back', code:'Back', keyCode:4, which:4});
-        window.dispatchEvent(kev);
-      }catch(_){ }
-    });
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          progressBarFull.style.width = 100 * progress + "%";
+              }).then((unityInstance) => {
+                loadingBar.style.display = "none";
+                fullscreenButton.onclick = () => {
+                  unityInstance.SetFullscreen(1);
+                };
+              }).catch((message) => {
+                alert(message);
+              });
+            };
 
-    // Prevent-back checkbox wiring
-    const preventEl = overlay.querySelector('#kp-prevent');
-    let preventBack = false;
-    if(preventEl){
-      preventEl.addEventListener('change', ()=>{ preventBack = !!preventEl.checked; noteRecent('preventBack=' + preventBack); });
-    }
+      document.body.appendChild(script);
 
-    try{ if(navigator.getGamepads && Array.from(navigator.getGamepads()).some(g=>g)) startGamepadPolling(); }catch(_){}
-
-    const clog = (...a)=>{ try{ console.log.apply(console, ['[input-monitor]',...a]); }catch(e){} };
-    // extra verbose capture-phase logger to help identify odd back-button signals
-    window.addEventListener('keydown', (e)=> clog('keydown', {key:e.key, code:e.code, keyCode:e.keyCode, which:e.which, location:e.location, repeat:e.repeat}), true);
-    window.addEventListener('keyup', (e)=> clog('keyup', {key:e.key, code:e.code, keyCode:e.keyCode, which:e.which}), true);
-
-    render();
-  })();
-  </script>
-</body>
-
+    </script>
+  </body>
 </html>
